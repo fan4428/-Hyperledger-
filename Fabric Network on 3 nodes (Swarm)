@@ -1,0 +1,136 @@
+This is a guide to set up a Fabric Network of 1 orderer with Kafka, 1 Organisation with 3 peers, deployed across 3 nodes using docker swarm. This network is tested on Digital Ocean droplets with Ubuntu 18.04 with Hyperledger Fabric 1.4.4.
+
+The setup of the nodes are as followed:
+Node	Zookeeper	Kafka	Orderer	Peer	Cli
+1	zookeeper0	kafka0
+kafka1	orderer0.frogfrogjuimp.com	peer0.org1.frogfrogjuimp.com	cli0
+2				peer1.org1.frogfrogjuimp.com	cli1
+3				peer2.org1.frogfrogjuimp.com	cli2
+
+(Unless specified, the steps will need to be run on all droplets.)
+
+Step 1: Set up your new droplet
+On all 3 droplets, run the following command to start it up.
+
+sudo apt-get update && sudo apt-get upgrade
+
+Step 2: Create a new user and switch into the user
+For subsequent steps, we need to create a new user in order to set up the network.
+
+sudo adduser frog
+sudo usermod -aG sudo frog
+su - frog
+
+Step 3: Download dependencies for hyperledger fabric.
+
+curl -O https://hyperledger.github.io/composer/latest/prereqs-ubuntu.sh
+chmod u+x prereqs-ubuntu.sh
+./prereqs-ubuntu.sh
+
+wget https://dl.google.com/go/go1.11.2.linux-amd64.tar.gz
+tar -xzvf go1.11.2.linux-amd64.tar.gz
+sudo mv go/ /usr/local
+
+nano ~/.bashrc
+#(add these 2 lines to end of file)
+export GOPATH=/usr/local/go
+export PATH=$PATH:$GOPATH/bin
+
+exit
+su – frog
+
+
+Step 4: Fetch fabric image and other tools required to generate channel artefacts and certificates.
+
+curl -sSL http://bit.ly/2ysbOFE | bash -s
+
+Step 5: Set up the overlay network using docker swarm
+
+(Node 1) 
+docker swarm init --advertise-addr {node1}
+
+You will be given a command that will look something like the following. Run this on Node 2 and Node 3. 
+
+docker swarm join --token SWMTKN-1-58xwguh8oa3jj6rcbcm4cyxg9lmitxyv1fs1sn1d5xy51e9arv-1hts5vhxebpjf6fz3kjskpbub 167.71.121.213:2377
+
+(Node 1) Now you can create the overlay network.
+
+docker network create --attachable --driver overlay fabric
+
+You will be able to see the swarm network fabric if you call docker network ls
+
+(Node 2 & 3) Create a busybox to have access to the overlay network
+
+docker run -itd --name mybusybox --network fabric busybox
+
+Step 6: (Node 1) Download files required to set up the fabric.
+
+git clone -b swarm  https://github.com/eugeneyl/one-org-kafka.git
+
+Step 7: (Node 1) Generate the channel artefacts and certificates required. 
+
+cd fabric-samples
+export PATH=$PATH:$PWD/bin
+cd one-org-kafka
+nano .env
+#Change the ip address of the nodes to the ip address of your droplets. 
+./generate.sh
+
+Change the FABRIC_CA_SERVER_CA_KEYFILE and FABRIC_CA_SERVER_TLS_KEYFILE of the CA in node1.yaml to reflect the actual key that is generated. You can find the key in one-org-kafka/peerOrganizations/org1.frogfrogjump.com/ca
+
+
+Step 8: (Node1) Zip the file and transfer the file to the other 2 nodes. You can use filezilla for this transfer.
+
+cd ..
+tar -czvf one-org-kafka.tar.gz one-org-kafka (zip)
+
+Step 9: (Node 2 and 3) Unzip the folder in the node.
+
+tar -xzvf one-org-kafka.tar.gz one-org-kafka
+
+Step 10: Set up the docker containers for the different components.
+
+docker-compose -f node1.yaml up -d
+docker-compose -f node2.yaml up -d
+docker-compose -f node3.yaml up -d
+
+Step 11 (Node 1): Create the channel block and transfer it to the other nodes.
+
+docker exec cli peer channel create -o orderer0.frogfrogjump.com:7050 -c mychannel -f ./channel-artifacts/channel.tx --tls true --cafile /opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/ordererOrganizations/frogfrogjump.com/orderers/orderer0.frogfrogjump.com/msp/tlscacerts/tlsca.frogfrogjump.com-cert.pem
+
+docker cp cli:/opt/gopath/src/github.com/hyperledger/fabric/peer/mychannel.block .
+
+
+Step 12 (Node 2 and 3): Transfer channel block into the cli container.
+
+docker cp mychannel.block cli:/opt/gopath/src/github.com/hyperledger/fabric/peer/
+
+Step 13: Join all the peers to the channel
+
+docker exec cli peer channel join -b mychannel.block
+
+Step 14: Install and instantiate the chaincode
+
+docker exec cli peer chaincode install -n orders -v 1.0 -p github.com/chaincode/orders/
+
+(Only on node 1)
+docker exec cli peer chaincode instantiate -o orderer0.frogfrogjump.com:7050 -C mychannel -n orders -v 1.0 -c '{"Args":[]}' --tls true --cafile /opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/ordererOrganizations/frogfrogjump.com/orderers/orderer0.frogfrogjump.com/msp/tlscacerts/tlsca.frogfrogjump.com-cert.pem
+
+Step 15: Try out the chain code
+
+docker exec cli peer chaincode invoke -o orderer0.frogfrogjump.com:7050 -C mychannel -n orders -c '{"Args":["initLedger"]}' --tls true --cafile /opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/ordererOrganizations/frogfrogjump.com/orderers/orderer0.frogfrogjump.com/msp/tlscacerts/tlsca.frogfrogjump.com-cert.pem
+
+docker exec cli peer chaincode query -C mychannel -n orders -c '{"Args":["queryAllOrders"]}'
+
+docker exec cli peer chaincode invoke -o orderer0.frogfrogjump.com:7050 -C mychannel -n orders -c '{"Args":["createOrder","ORDER14", "23459348", "5493058", "Pending"]}' --tls true --cafile /opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/ordererOrganizations/frogfrogjump.com/orderers/orderer0.frogfrogjump.com/msp/tlscacerts/tlsca.frogfrogjump.com-cert.pem
+
+docker exec cli peer chaincode query -C mychannel -n orders -c '{"Args":["queryOrder", "ORDER2]}' 
+
+You now have a working fabric network that is set up across 3 nodes! You can follow the guide on https://medium.com/@eplt/5-minutes-to-install-hyperledger-explorer-with-fabric-on-ubuntu-18-04-digitalocean-9b100d0cfd7d to set up a hyperledger explorer to view the fabric.
+
+Tearing down of the network
+In order for you to tear down the entire hyperledger network, you can call the following command.
+
+docker rm -f $(docker ps -aq) && docker rmi -f $(docker images | grep dev | awk '{print $3}') && docker volume prune
+
+

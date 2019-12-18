@@ -47,6 +47,12 @@ docker run -itd --name mybusybox --network fabric busybox
 git clone -b swarm https://github.com/eugeneyl/one-org-kafka.git
 cd fabric-samples
 export PATH=$PATH:$PWD/bin
+如果上边不行执行这个
+(
+  vim ~/.profile
+  # 在最后一行添加
+  export PATH=$PATH:$HOME/fabric-samples/bin
+)
 cd ..
 cd one-org-kafka
 sudo nano .env
@@ -58,8 +64,41 @@ tar -zxvf hyperledger-fabric-linux-amd64-1.4.4.tar.gz
 cd /home/frog/fabric-samples/first-network
 ./byfn.sh generate && ./byfn.sh up
 
+cd ~
+tar -czvf one-org-kafka.tar.gz one-org-kafka
+把压缩包放到node2 node3 上面
 cd ~/one-org-kafka
+
+修改node1.yaml里面的FABRIC_CA_SERVER_TLS_KEYFILE
+替换成生成ca证书的路径
+(
+  /home/frog/one-org-kafka/crypto-config/peerOrganizations/org1.example.com/ca/ca.org1.example.com-cert.pem
+)
+FABRIC_CA_SERVER_CA_KEYFILE
+(
+  /home/frog/one-org-kafka/crypto-config/peerOrganizations/org1.example.com/ca/c4e7edf932f810cbe20bd36242bbd7ec91e8b6e99ee7ca33a1739cf21f8668c5_sk
+)
+
+各自执行在各自node上
+sudo docker-compose -f node1.yaml up -d
+sudo docker-compose -f node2.yaml up -d
+sudo docker-compose -f node3.yaml up -d
+如果报错误说是重名了
+(
+  docker rm -f $(docker ps -aq)
+  docker rmi  $(docker images -a | grep dev-  | awk '{print $3 }')
+)
 sudo ./generate.sh
+docker exec cli peer channel create -o orderer0.frogfrogjump.com:7050 -c mychannel -f ./channel-artifacts/channel.tx --tls true --cafile /opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/ordererOrganizations/frogfrogjump.com/orderers/orderer0.frogfrogjump.com/msp/tlscacerts/tlsca.frogfrogjump.com-cert.pem
+docker cp cli:/opt/gopath/src/github.com/hyperledger/fabric/peer/mychannel.block .
+
+在node2 node3 上面
+把node1 one-org-kafka 下的 mychannel.block 拷贝下来放到node2 3 上
+cd ~/one-org-kafka
+docker cp mychannel.block cli:/opt/gopath/src/github.com/hyperledger/fabric/peer/
+
+在node1 2 3上
+docker exec cli peer channel join -b mychannel.block
 
 
 

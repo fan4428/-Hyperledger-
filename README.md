@@ -30,8 +30,11 @@ exit
 su - frog
 
 (
-也许执行下面不成功那就吧项目里的 t.sh 放到目录上执行 需要给权限 chmod -R 777 t.sh
-执行完后再把项目的两个压缩包传上去 在执行命令
+也许执行下面不成功那就吧项目里的 t.sh 放到目录上执行 需要给权限
+sudo chmod -R 777 t.sh
+./t.sh
+执行完后再把项目的两个压缩包传到 fabric-samples 上去 在执行命令
+cd /home/frog/fabric-samples
 tar -zxvf hyperledger-fabric-ca-linux-amd64-1.4.4.tar.gz
 tar -zxvf hyperledger-fabric-linux-amd64-1.4.4.tar.gz
 )
@@ -65,8 +68,8 @@ export PATH=$PATH:$PWD/bin
 //在最后一行添加
 //export PATH=$PATH:$HOME/fabric-samples/bin
 //)
-cd ..
-cd one-org-kafka
+
+cd ~/one-org-kafka
 sudo nano .env
 
 拷贝 hyperledger-fabric-ca-linux-amd64-1.4.4 hyperledger-fabric-linux-amd64-1.4.4 这两个文件到 fabric-samples 目录
@@ -116,26 +119,30 @@ cd ~/one-org-kafka
 docker cp mychannel.block cli:/opt/gopath/src/github.com/hyperledger/fabric/peer/
 
 在 node1 2 3 上
-docker exec cli peer channel join -b mychannel.block```
+docker exec cli peer channel join -b mychannel.block
 (
 如果 node2 node3 报错
 docker-compose -f node3.yaml down
 docker-compose -f node3.yaml up -d
 )
 docker exec cli peer chaincode install -n orders -v 1.0 -p github.com/chaincode/orders/
+//docker exec cli peer chaincode install -n mycc -v 1.0 -l node -p /opt/gopath/src/github.com/chaincode/chaincode_example02/node/
 
 在 node1
-docker exec cli peer chaincode instantiate -o orderer0.example.com:7050 -C mychannel -n orders -v 1.0 -c '{"Args":[]}' --tls true --cafile /opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/ordererOrganizations/example.com/orderers/orderer0.example.com/msp/tlscacerts/tlsca.example.com-cert.pem
+docker exec cli peer chaincode instantiate -o orderer0.example.com:7050 -C mychannel -l node -n orders -v 1.0 -c '{"Args":[]}' --tls true --cafile /opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/ordererOrganizations/example.com/orderers/orderer0.example.com/msp/tlscacerts/tlsca.example.com-cert.pem
+
+//测试用
+docker exec cli peer chaincode instantiate -o orderer0.example.com:7050 -C mychannel1 -n orders -l node -v 1.0 -c '{"Args":[]}' --tls true --cafile /opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/ordererOrganizations/example.com/orderers/orderer0.example.com/msp/tlscacerts/tlsca.example.com-cert.pem
 
 Step 15: Try out the chain code
 
-docker exec cli peer chaincode invoke -o orderer0.example.com:7050 -C mychannel -n orders -c '{"Args":["initLedger"]}' --tls true --cafile /opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/ordererOrganizations/example.com/orderers/orderer0.example.com/msp/tlscacerts/tlsca.example.com-cert.pem
+docker exec cli peer chaincode invoke -o orderer0.example.com:7050 -C mychannel  -n orders -c '{"Args":["initLedger"]}' --tls true --cafile /opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/ordererOrganizations/example.com/orderers/orderer0.example.com/msp/tlscacerts/tlsca.example.com-cert.pem
 
 docker exec cli peer chaincode query -C mychannel -n orders -c '{"Args":["queryAllOrders"]}'
 
-docker exec cli peer chaincode invoke -o orderer0.example.com:7050 -C mychannel -n orders -c '{"Args":["createOrder","ORDER14", "23459348", "5493058", "Pending"]}' --tls true --cafile /opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/ordererOrganizations/example.com/orderers/orderer0.example.com/msp/tlscacerts/tlsca.example.com-cert.pem
+docker exec cli peer chaincode invoke -o orderer0.example.com:7050 -C mychannel -n orders -c '{"Args":["createOrder","ORDER12", "23459348", "5493058", "Pending"]}' --tls true --cafile /opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/ordererOrganizations/example.com/orderers/orderer0.example.com/msp/tlscacerts/tlsca.example.com-cert.pem
 
-docker exec cli peer chaincode query -C mychannel -n orders -c '{"Args":["queryOrder", "ORDER2"]}'
+docker exec cli peer chaincode query -C mychannel -n orders -c '{"Args":["queryOrder", "ORDER14"]}'
 
 You now have a working fabric network that is set up across 3 nodes! You can follow the guide on https://medium.com/@eplt/5-minutes-to-install-hyperledger-explorer-with-fabric-on-ubuntu-18-04-digitalocean-9b100d0cfd7d to set up a hyperledger explorer to view the fabric.
 
@@ -143,3 +150,5 @@ Tearing down of the network
 In order for you to tear down the entire hyperledger network, you can call the following command.
 
 docker rm -f $(docker ps -aq) && docker rmi -f $(docker images | grep dev | awk '{print \$3}') && docker volume prune
+
+https://github.com/guanpengchn/guanpengchn.github.io/issues/13

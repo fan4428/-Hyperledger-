@@ -1,1 +1,140 @@
 docker exec cli peer chaincode invoke -o orderer0.example.com:7050 -C mychannel -n orders -c '{"Args":["createOrder","ORDER1", "1", "2", "3"]}' --tls true --cafile /opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/ordererOrganizations/example.com/orderers/orderer0.example.com/msp/tlscacerts/tlsca.example.com-cert.pem
+
+安装Hyperledger Fabric，服务整个都跑起来了，但是抛了一个错，Error: got unexpected status: FORBIDDEN -- Failed to reach implicit threshold of 1 sub-policies, required 1 remaining: permission denied
+这个时候找了很多解决的办法，解决思路是，仔细看一下orderer的日志，看清楚它到底是具体的哪一个部分有问题，
+看到大多数的问题在于：
+1）UTC [cauthdsl] deduplicate -> ERRO 014 Principal deserialization failure (the supplied identity is not valid: x509: certificate signed by unknown authority (possibly because of "x509: ECDSA verification failure" while trying to verify candidate authority certificate "ca.org1.example.com")) for identity
+错误原因：由于启动过网络并且更新了证书，在没有删除干净的环境中启动复用的之前的volume，所以导致证书认证失败。
+解决方案：执行如下命令删除卷
+docker-compose -f docker-compose-cli.yaml down --volumes --remove-orphans
+docker rm -f $(docker ps -a | grep "hyperledger/*" | awk "{print \$1}")
+docker volume prune
+
+
+
+常见Fabric错误场景（持续更新）
+
+天地一小儒
+0.441
+2019.05.22 10:42:19
+字数 2,150
+阅读 1,449
+1. Error: error getting endorser client for channel: endorser client failed to connect to orderer.rabbit.com:8051: failed to create new connection: context deadline exceeded
+原因：CORE_PEER_ADDRESS=orderer.rabbit.com:8051 地址不对或peer节点未启动
+
+2. Error: proposal failed (erdocker rm -f $(docker ps -aq)
+r: bad proposal response 500: access denied for [JoinChain][testc2]: [Failed verifying that proposal's creator satisfies local MSP principal during channelless check policy with policy [Admins]: [This identity is not an admin]])
+原因：CORE_PEER_MSPCONFIGPATH=crypto-config/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp msp地址未设置，或设置的地址不是admin
+
+3. Error: failed to create deliver client: orderer client failed to connect to 192.168.127.129:7050: failed to create new connection: context deadline exceeded
+原因：orderer节点地址不对，或orderer节点未启动
+
+4. Error: got unexpected status: BAD_REQUEST -- error authorizing update: error validating ReadSet: readset expected key [Group] /Channel/Application at version 0, but got version 1
+原因：通道已创建
+
+5. got unexpected status: BAD_REQUEST -- error authorizing update: error validating DeltaSet: policy for [Group] /Channel/Application not satisfied: Failed to reach implicit threshold of 1 sub-policies, required 1 remaining
+原因：通常表示频道创建事务的签名者没有其中一个联盟组织的管理员权限
+最常见的原因是：
+a) 该身份不在组织的管理员列表中。
+b) 组织证书未由组织CA链有效签署。
+c) 订货人不知道身份的组织。
+
+其他一些不太可能的可能性因为您使用的是对等二进制而不是自定义代码
+a) 签名与标识或有符号字节不匹配。
+b) 身份是畸形的。
+
+6. Cannot run peer because error when setting up MSP of type bccsp from directory /home/wff/jaderabbit/echain1/crypto-config/peerOrganizations/org1.example.com/peers/peer0.org1.example.com/msp: could not initialize BCCSP Factories: Failed initializing BCCSP.: Could not initialize BCCSP SW [Failed to initialize software key store: An invalid KeyStore path provided. Path cannot be an empty string.] Could not find default SW BCCSP
+原因：老版viper不会报错，这是由于你是用的最新版本的viper。如果你一定要使用最新版本的viper（我也想用），这里也可以提供一个不太正式的修改方案。
+新版viper修改方法：github.com/hyperledger/fabric/peer/common/common.go
+
+// SetBCCSPKeystorePath sets the file keystore path for the SW BCCSP provider
+// to an absolute path relative to the config file
+func SetBCCSPKeystorePath() {
+    if path := config.GetPath("peer.BCCSP.SW.FileKeyStore.KeyStore"); path != "" {
+        viper.Set("peer.BCCSP.SW.FileKeyStore.KeyStore", path)
+    }
+}
+7. resource temporarily unavailable
+原因：打开了相同的leveldb
+
+8. error getting default signer: error obtaining the default signing identity: this MSP does not possess a valid default signing identity
+原因：未初始化MSP，可以试试调用这个命令进行初始化
+
+common.InitCmd(nil,[]string{})
+9. proposal failed (err: bad proposal response 500: cannot create ledger from genesis block: LedgerID already exists)
+原因：重复加入channel
+
+10. error getting endorser and deliver clients: no endorser clients retrieved - this might indicate a bug
+获取endorser客户端时，peerAddresses是空数组，须是元素为空串，长度为1的数组
+
+11. Bad configuration detected: Received AliveMessage from a peer with the same PKI-ID as myself: tag:EMPTY alive_msg:<membership:<pki_id:"\206\0367dH\361\312\347\300l\035@1v\356\030\003\233*\355\241\234\262zf\352\264\367w\007\302\226" > timestamp:<inc_num:1554097615134317977 seq_num:539 > >
+使用了相同的msp证书
+
+12. error: chaincode fingerprint mismatch: data mismatch
+安装链代码时，基本流程的工作方式如下：
+
+考虑到包括传递在内的所有依赖关系，它被打包到存档文件中
+使用golang环境在docker容器内复制并在那里编译
+如果我没有弄错，下一个peer会建立新的chaincode容器并移动已编译的二进制文件 /usr/bin/local/chaincode
+现在，问题在于$GOPATH您的计算机中很可能存在差异，因此在不同的计算机上安装相同的链代码会带来不同的依赖关系，最终会产生不同的手指结果。
+您需要做的是将您的链代码打包在一个地方并分发包以安装它。
+peer chaincode package -n name -v 1.0 -p path_to_your_chaincode
+13. Got error while committing(unexpected Previous block hash. Expected PreviousHash =
+通道创始块配置文件和orderer里的创始块配置不匹配
+
+14. error: Error constructing Docker VM Name. 'dev1-trembling--human--rabbit_02-1.0-f21065c44f48dc8183241105b2a4dac241d062f17f6678c851c9d6989df58c71' breaks Docker's repository naming rules
+core.yaml中的peer.id有特殊字符
+
+15. Error: error endorsing chaincode: rpc error: code = Unknown desc = access denied: channel [syschannel] creator org [Org1MSP]
+没加入syschannel通道
+
+error Entry not found in index
+查询的数据不存在。最直观的可能就是你所查询的数据是脏数据，源数据已经被清除，再查询时，就会报这个错误
+
+链码间调用无力吐槽之一，chaincode里面调用另外的chaincode时，错误是放在payload里面的。
+InvokeChaincode.png
+
+解决方法：
+    args, channelID := [][]byte{[]byte(tee.MethodQueryDataByID), []byte(notificationID)}, stub.GetChannelID()
+    response := stub.InvokeChaincode(tee.ChaincodeName, args, channelID)
+    if response.Status != shim.OK {
+        return nil, fmt.Errorf("error invoking chaincode %s[%s] to query notification in channel: %s, error: %v",
+            tee.ChaincodeName, tee.MethodQueryDataByID, channelID, string(response.Payload))
+    }
+链码间调用无力吐槽之二，不能并发调用同一个channel上的链码（ps：到底怎么想的？），因为在调用其他链码时，本身会维护一个responseMap，key是chaidID+txID，如果存在，则报错channel exists。
+并发调用
+解决方法：老老实实一个个调用，上一个结果返回了再调用下一个。在我这里，并发难处理？不存在的。
+
+Error: could not assemble transaction, err proposal response was not successful, error code 500, msg chaincode registration failed: container exited with 2
+链码升级时报错，重启peer时发现启动不了，原来我链码中引用的一个config.go的文件，此文件有一个init函数会加载同目录下的一个yaml配置文件。而fabric 的链码打包安装到docker时，并不会加载非go的文件，因此，实例化时找这个文件找不到就panic报错了。由于fabric启动docker容器失败会自动删除docker容器，因此本应该能打印出来的错误被fabric给干掉了，因此出现题干的错误。谨记：所有的链码，必须是纯go文件写的，无任何非go依赖，如c文件，yml文件等，否则必然报错报错报错，还找不到原因！！！
+
+Description: failed to execute transaction 10eb8d06f4c8f43b3f6bacb19b97230edda4fbf87527a7e47ba3d602674c49ec: [channel syschannel] could not launch chaincode basis:20191125152021-152f4433: chaincode registration failed: container exited with 0
+链码调用时报错，删除所有的docker container和images再调用依然报错，重启peer后回复正常。猜测是ip或是端口问题。留据存疑。
+
+21.Error: got unexpected status: NOT_FOUND -- channel does not exist
+实例化链码时报错，查询节点加入的通道peer channel list时，发现已存在。原因？？未知。猜测，kafka集群未初始化topic时，就加入了通道，导致实际通道加入失败，但peer又已经记录了通道状态为已加入？
+
+https://registry-1.docker.io/v2/: net/http: request canceled while waiting for connection
+实例化链码时失败报错，原因是服务器是不联网的，并且本地的镜像版本过低，导致服务器拉取最新的镜像而联网报错。解决方案更新本地镜像，docker save/docker load。
+
+cannot retrieve package for chaincode…, too many open files
+大并发invoke chaincode时报错。
+
+【分析】
+由于是生产代码，想上生产环境需要先申请才能上去，为加快查问题的速度，先从源码分析一下错误产生的原因
+
+image.png
+image.png
+image.png
+根据文件调用栈可以看出，fabric在invoke链码时会去检查链码的实例化策略，这是为了防止有已经部署好的链码是绕过了这个策略实例化的。由于在检查时，会去本地文件系统读取链码信息，当大量并发时，超过系统设置的文件句柄，于是报错，too many open files.
+
+【解决方案】
+由于peer在进行链码调用时是因为要检查链码实例化策略才需要打开文件，且根据代码显示，打开文件是必要的（?），文件未写入，且未占用句柄不关闭，所以这里的解决方案有：
+
+临时方案。加大系统句柄数，修改/etc/security/limits.conf文件，末尾加上
+root soft nofile 65535
+root hard nofile 65535
+* soft nofile 65535
+* hard nofile 65535
+永久方案。考虑将文件信息加入内存，不必每次都打开，但这里会出现一定的风险，也即文件和内存内容的同步，这里可以加入同步机制来处理。
+这里，为恢复环境为第一要，先采用临时方案，后续考虑永久方案。

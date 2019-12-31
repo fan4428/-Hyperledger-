@@ -39,8 +39,8 @@ tar -zxvf hyperledger-fabric-ca-linux-amd64-1.4.4.tar.gz
 tar -zxvf hyperledger-fabric-linux-amd64-1.4.4.tar.gz
 )
 
-curl -sSL http://bit.ly/2ysbOFE | bash -s
-vim ~/.profile
+//curl -sSL http://bit.ly/2ysbOFE | bash -s
+//vim ~/.profile
 在最后一行添加
 export PATH=$PATH:$HOME/fabric-samples/bin
 5
@@ -107,7 +107,7 @@ docker rm -f $(docker ps -aq)
 )
 #sudo ./generate.sh
 node1 上面
-#docker exec cli peer channel create -o orderer0.frogfrogjump.com:7050 -c mychannel -f ./channel-artifacts/channel.tx --tls true --cafile /opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/#ordererOrganizations/frogfrogjump.com/orderers/orderer0.frogfrogjump.com/msp/tlscacerts/tlsca.frogfrogjump.com-cert.pem
+//docker exec cli peer channel create -o orderer0.frogfrogjump.com:7050 -c mychannel -f ./channel-artifacts/channel.tx --tls true --cafile /opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/////ordererOrganizations/frogfrogjump.com/orderers/orderer0.frogfrogjump.com/msp/tlscacerts/tlsca.frogfrogjump.com-cert.pem
 
 docker exec cli peer channel create -o orderer0.example.com:7050 -c mychannel -f ./channel-artifacts/channel.tx --tls true --cafile /opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/ordererOrganizations/example.com/orderers/orderer0.example.com/msp/tlscacerts/tlsca.example.com-cert.pem
 
@@ -120,13 +120,9 @@ docker cp mychannel.block cli:/opt/gopath/src/github.com/hyperledger/fabric/peer
 
 在 node1 2 3 上
 docker exec cli peer channel join -b mychannel.block
-(
-如果 node2 node3 报错
-docker-compose -f node3.yaml down
-docker-compose -f node3.yaml up -d
-)
+ 
 docker exec cli peer chaincode install -n orders -v 1.0 -p github.com/chaincode/orders/
-//docker exec cli peer chaincode install -n mycc -v 1.0 -l node -p /opt/gopath/src/github.com/chaincode/chaincode_example02/node/
+//docker exec cli peer chaincode install -n mycc1 -v 1.0 -l node -p /opt/gopath/src/github.com/chaincode/chaincode_example02/node/
 
 在 node1
 docker exec cli peer chaincode instantiate -o orderer0.example.com:7050 -C mychannel -l node -n orders -v 1.0 -c '{"Args":[]}' --tls true --cafile /opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/ordererOrganizations/example.com/orderers/orderer0.example.com/msp/tlscacerts/tlsca.example.com-cert.pem
@@ -136,7 +132,7 @@ docker exec cli peer chaincode instantiate -o orderer0.example.com:7050 -C mycha
 
 Step 15: Try out the chain code
 
-docker exec cli peer chaincode invoke -o orderer0.example.com:7050 -C mychannel  -n orders -c '{"Args":["initLedger"]}' --tls true --cafile /opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/ordererOrganizations/example.com/orderers/orderer0.example.com/msp/tlscacerts/tlsca.example.com-cert.pem
+docker exec cli peer chaincode invoke -o orderer0.example.com:7050 -C mychannel -n orders -c '{"Args":["initLedger"]}' --tls true --cafile /opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/ordererOrganizations/example.com/orderers/orderer0.example.com/msp/tlscacerts/tlsca.example.com-cert.pem
 
 docker exec cli peer chaincode query -C mychannel -n orders -c '{"Args":["queryAllOrders"]}'
 

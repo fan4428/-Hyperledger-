@@ -13,7 +13,7 @@ chmod u+x prereqs-ubuntu.sh
 (
 sudo apt-get install software-properties-common -y
 )
-./prereqs-ubuntu.sh
+./prereqs-ubuntu.sh (因网络问题可能会执行错误多试几次)
 
 4
 
@@ -40,7 +40,7 @@ tar -zxvf hyperledger-fabric-linux-amd64-1.4.4.tar.gz
 )
 
 //curl -sSL http://bit.ly/2ysbOFE | bash -s
-//vim ~/.profile
+vim ~/.profile
 在最后一行添加
 export PATH=$PATH:$HOME/fabric-samples/bin
 5
@@ -71,16 +71,18 @@ export PATH=$PATH:$PWD/bin
 
 cd ~/one-org-kafka
 sudo nano .env
+填写 ip
 
-拷贝 hyperledger-fabric-ca-linux-amd64-1.4.4 hyperledger-fabric-linux-amd64-1.4.4 这两个文件到 fabric-samples 目录
-解压
-tar -zxvf hyperledger-fabric-ca-linux-amd64-1.4.4.tar.gz
-tar -zxvf hyperledger-fabric-linux-amd64-1.4.4.tar.gz
-cd /home/frog/fabric-samples/first-network
-./byfn.sh generate && ./byfn.sh up
+//拷贝 hyperledger-fabric-ca-linux-amd64-1.4.4 hyperledger-fabric-linux-amd64-1.4.4 这两个文件到 fabric-samples 目录
+//解压
+//tar -zxvf hyperledger-fabric-ca-linux-amd64-1.4.4.tar.gz
+//tar -zxvf hyperledger-fabric-linux-amd64-1.4.4.tar.gz
+//cd /home/frog/fabric-samples/first-network
+//./byfn.sh generate && ./byfn.sh up
 
 cd ~/one-org-kafka
 替换项目里的 generate 到目录
+sudo chmod -R 777 generate.sh
 sudo ./generate.sh
 
 cd ~
@@ -120,8 +122,8 @@ docker cp mychannel.block cli:/opt/gopath/src/github.com/hyperledger/fabric/peer
 
 在 node1 2 3 上
 docker exec cli peer channel join -b mychannel.block
- 
 docker exec cli peer chaincode install -n orders -v 1.0 -p github.com/chaincode/orders/
+ 
 //docker exec cli peer chaincode install -n mycc1 -v 1.0 -l node -p /opt/gopath/src/github.com/chaincode/chaincode_example02/node/
 
 在 node1
@@ -134,11 +136,12 @@ Step 15: Try out the chain code
 
 docker exec cli peer chaincode invoke -o orderer0.example.com:7050 -C mychannel -n orders -c '{"Args":["initLedger"]}' --tls true --cafile /opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/ordererOrganizations/example.com/orderers/orderer0.example.com/msp/tlscacerts/tlsca.example.com-cert.pem
 
+
 docker exec cli peer chaincode query -C mychannel -n orders -c '{"Args":["queryAllOrders"]}'
 
 docker exec cli peer chaincode invoke -o orderer0.example.com:7050 -C mychannel -n orders -c '{"Args":["createOrder","ORDER12", "23459348", "5493058", "Pending"]}' --tls true --cafile /opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/ordererOrganizations/example.com/orderers/orderer0.example.com/msp/tlscacerts/tlsca.example.com-cert.pem
 
-docker exec cli peer chaincode query -C mychannel -n orders -c '{"Args":["queryOrder", "ORDER14"]}'
+docker exec cli peer chaincode query -C mychannel -n orders -c '{"Args":["queryOrder", "ORDER12"]}'
 
 You now have a working fabric network that is set up across 3 nodes! You can follow the guide on https://medium.com/@eplt/5-minutes-to-install-hyperledger-explorer-with-fabric-on-ubuntu-18-04-digitalocean-9b100d0cfd7d to set up a hyperledger explorer to view the fabric.
 

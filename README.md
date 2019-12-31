@@ -91,12 +91,12 @@ sudo tar -czvf one-org-kafka.tar.gz one-org-kafka
 tar -xzvf one-org-kafka.tar.gz one-org-kafka
 cd ~/one-org-kafka
 
-修改 node1.yaml 里面的 FABRIC_CA_SERVER_TLS_KEYFILE,FABRIC_CA_SERVER_CA_KEYFILE
-需要进入 docker hyperledger/fabric-ca 容器 docker exec -it 容器 ID /bin/bash
-替换成生成 ca 证书的路径
-(
-/etc/hyperledger/fabric-ca-server-config/b7426d0fe00bd7efed91498d1f9c7f772339c758793a4922fd4f994356d325a1_sk
-)
+//修改 node1.yaml 里面的 FABRIC_CA_SERVER_TLS_KEYFILE,FABRIC_CA_SERVER_CA_KEYFILE
+//需要进入 docker hyperledger/fabric-ca 容器 docker exec -it 容器 ID /bin/bash
+//替换成生成 ca 证书的路径
+//(
+// /etc/hyperledger/fabric-ca-server-config/b7426d0fe00bd7efed91498d1f9c7f772339c758793a4922fd4f994356d325a1_sk
+//)
 
 各自执行在各自 node 上
 sudo docker-compose -f node1.yaml up -d

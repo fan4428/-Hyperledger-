@@ -1,3 +1,4 @@
+//阿里云配置 docker 仓库加速地址 https://cr.console.aliyun.com/#/accelerator
 1
 sudo apt-get update -y && sudo apt-get upgrade -y
 
@@ -14,6 +15,7 @@ chmod u+x prereqs-ubuntu.sh
 sudo apt-get install software-properties-common -y
 )
 ./prereqs-ubuntu.sh (因网络问题可能会执行错误多试几次)
+//#可以替换 ./prereqs-ubuntu.sh 104 行 sudo curl -L "https://get.daocloud.io/docker/compose/releases/download/1.13.0/docker-compose-$(uname -s)-\$(uname -m)" \
 
 4
 
@@ -55,6 +57,7 @@ docker swarm join --token SWMTKN-1-1zpb17rqs56vyd31gej35v9nnr6sxrtew1uube3eablcm
 6
 第一台机子
 docker network create --attachable --driver overlay fabric
+
 2,3 台机子
 docker run -itd --name mybusybox --network fabric busybox
 
@@ -102,18 +105,24 @@ cd ~/one-org-kafka
 sudo docker-compose -f node1.yaml up -d
 sudo docker-compose -f node2.yaml up -d
 sudo docker-compose -f node3.yaml up -d
+sudo docker-compose -f node4.yaml up -d
+
+//sudo docker rm -f \$(sudo docker ps -aq) && sudo docker volume prune
 如果报错误说是重名了
 (
+docker run -itd --name mybusybox --network fabric busybox
+
 docker rm -f $(docker ps -aq)
   docker rmi  $(docker images -a | grep dev- | awk '{print \$3 }')
 )
-#sudo ./generate.sh
+
 node1 上面
-//docker exec cli peer channel create -o orderer0.frogfrogjump.com:7050 -c mychannel -f ./channel-artifacts/channel.tx --tls true --cafile /opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/////ordererOrganizations/frogfrogjump.com/orderers/orderer0.frogfrogjump.com/msp/tlscacerts/tlsca.frogfrogjump.com-cert.pem
 
 docker exec cli peer channel create -o orderer0.example.com:7050 -c mychannel -f ./channel-artifacts/channel.tx --tls true --cafile /opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/ordererOrganizations/example.com/orderers/orderer0.example.com/msp/tlscacerts/tlsca.example.com-cert.pem
 
 docker cp cli:/opt/gopath/src/github.com/hyperledger/fabric/peer/mychannel.block .
+
+//docker cp cli:/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/ordererOrganizations/example.com/orderers/orderer0.example.com/msp/tlscacerts/tlsca.example.com-cert.pem .
 
 在 node2 node3 上面
 把 node1 one-org-kafka 下的 mychannel.block 拷贝下来放到 node2 3 上
@@ -123,25 +132,19 @@ docker cp mychannel.block cli:/opt/gopath/src/github.com/hyperledger/fabric/peer
 在 node1 2 3 上
 docker exec cli peer channel join -b mychannel.block
 docker exec cli peer chaincode install -n orders -v 1.0 -p github.com/chaincode/orders/
- 
-//docker exec cli peer chaincode install -n mycc1 -v 1.0 -l node -p /opt/gopath/src/github.com/chaincode/chaincode_example02/node/
 
 在 node1
 docker exec cli peer chaincode instantiate -o orderer0.example.com:7050 -C mychannel -l node -n orders -v 1.0 -c '{"Args":[]}' --tls true --cafile /opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/ordererOrganizations/example.com/orderers/orderer0.example.com/msp/tlscacerts/tlsca.example.com-cert.pem
-
-//测试用
-docker exec cli peer chaincode instantiate -o orderer0.example.com:7050 -C mychannel1 -n orders -l node -v 1.0 -c '{"Args":[]}' --tls true --cafile /opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/ordererOrganizations/example.com/orderers/orderer0.example.com/msp/tlscacerts/tlsca.example.com-cert.pem
 
 Step 15: Try out the chain code
 
 docker exec cli peer chaincode invoke -o orderer0.example.com:7050 -C mychannel -n orders -c '{"Args":["initLedger"]}' --tls true --cafile /opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/ordererOrganizations/example.com/orderers/orderer0.example.com/msp/tlscacerts/tlsca.example.com-cert.pem
 
-
 docker exec cli peer chaincode query -C mychannel -n orders -c '{"Args":["queryAllOrders"]}'
 
-docker exec cli peer chaincode invoke -o orderer0.example.com:7050 -C mychannel -n orders -c '{"Args":["createOrder","ORDER12", "23459348", "5493058", "Pending"]}' --tls true --cafile /opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/ordererOrganizations/example.com/orderers/orderer0.example.com/msp/tlscacerts/tlsca.example.com-cert.pem
+docker exec cli peer chaincode invoke -o orderer0.example.com:7050 -C mychannel -n orders -c '{"Args":["createOrder","f", "23459348", "5493058", "Pending"]}' --tls true --cafile /opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/ordererOrganizations/example.com/orderers/orderer0.example.com/msp/tlscacerts/tlsca.example.com-cert.pem
 
-docker exec cli peer chaincode query -C mychannel -n orders -c '{"Args":["queryOrder", "ORDER12"]}'
+sudo docker exec cli peer chaincode query -C mychannel -n orders -c '{"Args":["queryOrder", "f"]}'
 
 You now have a working fabric network that is set up across 3 nodes! You can follow the guide on https://medium.com/@eplt/5-minutes-to-install-hyperledger-explorer-with-fabric-on-ubuntu-18-04-digitalocean-9b100d0cfd7d to set up a hyperledger explorer to view the fabric.
 
@@ -151,3 +154,12 @@ In order for you to tear down the entire hyperledger network, you can call the f
 docker rm -f $(docker ps -aq) && docker rmi -f $(docker images | grep dev | awk '{print \$3}') && docker volume prune
 
 https://github.com/guanpengchn/guanpengchn.github.io/issues/13
+
+docker exec cli peer chaincode invoke -o orderer0.example.com:7050 -C mychannel -n orders -c '{"Args":["createOrder","a","b","10","a"]}' --tls true --cafile /opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/ordererOrganizations/example.com/orderers/orderer0.example.com/msp/tlscacerts/tlsca.example.com-cert.pem
+
+docker exec cli peer chaincode invoke -o orderer.example.com:7050 -C mychannel -n orders --peerAddresses peer0.org1.example.com:7051 --peerAddresses peer0.org2.example.com:7051 -c '{"Args":["invoke","a","b","10"]}'
+
+docker rm -f \$(docker ps -aq) && docker volume prune
+sudo docker rm -f $(sudo docker ps -aq) && sudo docker volume prune
+
+    docker swarm join --token SWMTKN-1-20urw9l4oonitqsiqld0zujfuo48e1wynn22fykr817b16at90-cxrsgaz8wjlo5do28j8s2y9fm 39.99.190.29:2377

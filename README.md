@@ -95,7 +95,7 @@ tar -xzvf one-org-kafka.tar.gz one-org-kafka
 cd ~/one-org-kafka
 
 //修改 node1.yaml 里面的 FABRIC_CA_SERVER_TLS_KEYFILE,FABRIC_CA_SERVER_CA_KEYFILE
-//需要进入 docker hyperledger/fabric-ca 容器 docker exec -it 容器 ID /bin/bash
+//需要进入 docker hyperledger/fabric-ca 容器 docker exec -it cli /bin/bash
 //替换成生成 ca 证书的路径
 //(
 // /etc/hyperledger/fabric-ca-server-config/b7426d0fe00bd7efed91498d1f9c7f772339c758793a4922fd4f994356d325a1_sk
@@ -132,6 +132,8 @@ docker cp mychannel.block cli:/opt/gopath/src/github.com/hyperledger/fabric/peer
 在 node1 2 3 上
 docker exec cli peer channel join -b mychannel.block
 docker exec cli peer chaincode install -n orders -v 1.0 -p github.com/chaincode/orders/
+//如果安装 node chaincode
+//docker exec cli peer chaincode install -n orders -v 1.0 -l node -p /opt/gopath/src/github.com/hyperledger/fabric/peer/scripts
 
 在 node1
 docker exec cli peer chaincode instantiate -o orderer0.example.com:7050 -C mychannel -l node -n orders -v 1.0 -c '{"Args":[]}' --tls true --cafile /opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/ordererOrganizations/example.com/orderers/orderer0.example.com/msp/tlscacerts/tlsca.example.com-cert.pem
@@ -160,6 +162,6 @@ docker exec cli peer chaincode invoke -o orderer0.example.com:7050 -C mychannel 
 docker exec cli peer chaincode invoke -o orderer.example.com:7050 -C mychannel -n orders --peerAddresses peer0.org1.example.com:7051 --peerAddresses peer0.org2.example.com:7051 -c '{"Args":["invoke","a","b","10"]}'
 
 docker rm -f \$(docker ps -aq) && docker volume prune
-sudo docker rm -f $(sudo docker ps -aq) && sudo docker volume prune
+sudo docker rm -f \$(sudo docker ps -aq) && sudo docker volume prune
 
     docker swarm join --token SWMTKN-1-20urw9l4oonitqsiqld0zujfuo48e1wynn22fykr817b16at90-cxrsgaz8wjlo5do28j8s2y9fm 39.99.190.29:2377

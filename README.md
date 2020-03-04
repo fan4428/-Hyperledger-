@@ -133,7 +133,7 @@ docker cp mychannel.block cli:/opt/gopath/src/github.com/hyperledger/fabric/peer
 docker exec cli peer channel join -b mychannel.block
 docker exec cli peer chaincode install -n orders -v 1.0 -p github.com/chaincode/orders/
 //如果安装 node chaincode
-//docker exec cli peer chaincode install -n orders -v 1.0 -l node -p /opt/gopath/src/github.com/hyperledger/fabric/peer/scripts
+//docker exec cli peer chaincode install -n orders -v 1.0 -l node -p /opt/gopath/src/github.com/hyperledger/fabric/peer/scripts/
 
 在 node1
 docker exec cli peer chaincode instantiate -o orderer0.example.com:7050 -C mychannel -l node -n orders -v 1.0 -c '{"Args":[]}' --tls true --cafile /opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/ordererOrganizations/example.com/orderers/orderer0.example.com/msp/tlscacerts/tlsca.example.com-cert.pem
@@ -146,7 +146,7 @@ docker exec cli peer chaincode query -C mychannel -n orders -c '{"Args":["queryA
 
 docker exec cli peer chaincode invoke -o orderer0.example.com:7050 -C mychannel -n orders -c '{"Args":["createOrder","f", "23459348", "5493058", "Pending"]}' --tls true --cafile /opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/ordererOrganizations/example.com/orderers/orderer0.example.com/msp/tlscacerts/tlsca.example.com-cert.pem
 
-sudo docker exec cli peer chaincode query -C mychannel -n orders -c '{"Args":["queryOrder", "f"]}'
+sudo docker exec cli peer chaincode query -C mychannel -n orders -c '{"Args":["queryOrder", "ORDER1"]}'
 
 You now have a working fabric network that is set up across 3 nodes! You can follow the guide on https://medium.com/@eplt/5-minutes-to-install-hyperledger-explorer-with-fabric-on-ubuntu-18-04-digitalocean-9b100d0cfd7d to set up a hyperledger explorer to view the fabric.
 
@@ -162,6 +162,6 @@ docker exec cli peer chaincode invoke -o orderer0.example.com:7050 -C mychannel 
 docker exec cli peer chaincode invoke -o orderer.example.com:7050 -C mychannel -n orders --peerAddresses peer0.org1.example.com:7051 --peerAddresses peer0.org2.example.com:7051 -c '{"Args":["invoke","a","b","10"]}'
 
 docker rm -f \$(docker ps -aq) && docker volume prune
-sudo docker rm -f \$(sudo docker ps -aq) && sudo docker volume prune
+sudo docker rm -f $(sudo docker ps -aq) && sudo docker volume prune
 
     docker swarm join --token SWMTKN-1-20urw9l4oonitqsiqld0zujfuo48e1wynn22fykr817b16at90-cxrsgaz8wjlo5do28j8s2y9fm 39.99.190.29:2377

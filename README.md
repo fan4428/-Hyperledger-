@@ -1,3 +1,4 @@
+//这是一个shell docker
 //阿里云配置 docker 仓库加速地址 https://cr.console.aliyun.com/#/accelerator
 1
 sudo apt-get update -y && sudo apt-get upgrade -y
